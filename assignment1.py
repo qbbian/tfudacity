@@ -67,8 +67,8 @@ image_file = os.path.join(train_folders[0], images[0])
 print(image_file)
 pil_im = Image.open(image_file, mode="r")
 pil_im.show()
-#myImage = Image(filename = image_file)
-#display(myImage)
+# myImage = Image(filename = image_file)
+# display(myImage)
 
 image_size = 28  # Pixel width and height.
 pixel_depth = 255.0  # Number of levels per pixel.
@@ -130,8 +130,110 @@ test_datasets = maybe_pickle(test_folders, 1800)
 
 # Problem 2
 import matplotlib.cm as cm
+
 train_dataset_name = train_datasets[0]
 print(train_dataset_name)
 dataset = pickle.load(open(train_dataset_name, "rb"))
 plt.imshow(dataset[0], cmap=cm.Greys_r)
 plt.show()
+
+# Problem 3
+for trainset_name in train_datasets:
+    trainset = pickle.load(open(trainset_name, "rb"))
+    print('train set name: %s, number of samples: %d' % (trainset_name, trainset.shape[0]))
+
+
+def make_arrays(nb_rows, img_size):
+    if nb_rows:
+        dataset = np.ndarray((nb_rows, img_size, img_size), dtype=np.float32)
+        labels = np.ndarray(nb_rows, dtype=np.int32)
+    else:
+        dataset, labels = None, None
+    return dataset, labels
+
+
+def merge_datasets(pickle_files, train_size, valid_size=0):
+    num_classes = len(pickle_files)
+    valid_dataset, valid_labels = make_arrays(valid_size, image_size)
+    train_dataset, train_labels = make_arrays(train_size, image_size)
+    vsize_per_class = valid_size // num_classes
+    tsize_per_class = train_size // num_classes
+
+    start_v, start_t = 0, 0
+    end_v, end_t = vsize_per_class, tsize_per_class
+    end_l = vsize_per_class + tsize_per_class
+    for label, pickle_file in enumerate(pickle_files):
+        try:
+            with open(pickle_file, 'rb') as f:
+                letter_set = pickle.load(f)
+                if valid_dataset is not None:
+                    valid_letter = letter_set[:vsize_per_class, :, :]
+                    valid_dataset[start_v:end_v, :, :] = valid_letter
+                    valid_labels[start_v:end_v] = label
+                    start_v += vsize_per_class
+                    end_v += vsize_per_class
+
+                train_letter = letter_set[vsize_per_class:end_l, :, :]
+                train_dataset[start_t:end_t, :, :] = train_letter
+                train_labels[start_t:end_t] = label
+                start_t += tsize_per_class
+                end_t += tsize_per_class
+        except Exception as e:
+            print('Unable to process data from', pickle_file, ':', e)
+            raise
+
+    return valid_dataset, valid_labels, train_dataset, train_labels
+
+
+train_size = 50000
+valid_size = 2000
+test_size = 2000
+
+valid_dataset, valid_labels, train_dataset, train_labels = merge_datasets(train_datasets, train_size, valid_size)
+_, _, test_dataset, test_labels = merge_datasets(test_datasets, test_size)
+
+print('Training:', train_dataset.shape, train_labels.shape)
+print('Validation:', valid_dataset.shape, valid_labels.shape)
+print('Testing:', test_dataset.shape, test_labels.shape)
+
+np.random.seed(133)
+
+
+def randomize(dataset, labels):
+    permutation = np.random.permutation(labels.shape[0])
+    shuffled_dataset = dataset[permutation, :, :]
+    shuffled_labels = labels[permutation]
+    return shuffled_dataset, shuffled_labels
+
+
+train_dataset, train_labels = randomize(train_dataset, train_labels)
+test_dataset, test_labels = randomize(test_dataset, test_labels)
+
+# Problem 4
+print("Train label #0 is %d" % train_labels[0])
+plt.imshow(train_dataset[0], cmap=cm.Greys_r)
+plt.show()
+print("Test label #0 is %d" % test_labels[0])
+plt.imshow(test_dataset[0], cmap=cm.Greys_r)
+plt.show()
+
+pickle_file = 'notMNIST.pickle'
+
+try:
+    f = open(pickle_file, 'wb')
+    save = {
+        'train_dataset': train_dataset,
+        'train_labels': train_labels,
+        'valid_dataset': valid_dataset,
+        'valid_labels': valid_labels,
+        'test_dataset': test_dataset,
+        'test_labels': test_labels,
+    }
+    pickle.dump(save, f, pickle.HIGHEST_PROTOCOL)
+    f.close()
+except Exception as e:
+    print('Unable to save data to', pickle_file, ':', e)
+    raise
+
+statinfo = os.stat(pickle_file)
+print('Compressed pickle size:', statinfo.st_size)
