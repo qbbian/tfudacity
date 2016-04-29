@@ -1,6 +1,7 @@
 # These are all the modules we'll be using later. Make sure you can import them
 # before proceeding further.
 from __future__ import print_function
+from __future__ import division
 import matplotlib.pyplot as plt
 import numpy as np
 import os
@@ -62,11 +63,11 @@ train_folders = maybe_extract(train_filename)
 test_folders = maybe_extract(test_filename)
 
 # Problem 1
-images = os.listdir(train_folders[0])
-image_file = os.path.join(train_folders[0], images[0])
-print(image_file)
-pil_im = Image.open(image_file, mode="r")
-pil_im.show()
+# images = os.listdir(train_folders[0])
+# image_file = os.path.join(train_folders[0], images[0])
+# print(image_file)
+# pil_im = Image.open(image_file, mode="r")
+# pil_im.show()
 # myImage = Image(filename = image_file)
 # display(myImage)
 
@@ -129,12 +130,14 @@ train_datasets = maybe_pickle(train_folders, 45000)
 test_datasets = maybe_pickle(test_folders, 1800)
 
 # Problem 2
+# Display a sample image
 import matplotlib.cm as cm
 
-train_dataset_name = train_datasets[0]
+print("Problem 2")
+train_dataset_name = train_datasets[1]
 print(train_dataset_name)
 dataset = pickle.load(open(train_dataset_name, "rb"))
-plt.imshow(dataset[0], cmap=cm.Greys_r)
+plt.imshow(dataset[1], cmap=cm.Greys_r)
 plt.show()
 
 # Problem 3
@@ -185,9 +188,9 @@ def merge_datasets(pickle_files, train_size, valid_size=0):
     return valid_dataset, valid_labels, train_dataset, train_labels
 
 
-train_size = 50000
-valid_size = 2000
-test_size = 2000
+train_size = 100000
+valid_size = 1000
+test_size = 1000
 
 valid_dataset, valid_labels, train_dataset, train_labels = merge_datasets(train_datasets, train_size, valid_size)
 _, _, test_dataset, test_labels = merge_datasets(test_datasets, test_size)
@@ -197,7 +200,6 @@ print('Validation:', valid_dataset.shape, valid_labels.shape)
 print('Testing:', test_dataset.shape, test_labels.shape)
 
 np.random.seed(133)
-
 
 def randomize(dataset, labels):
     permutation = np.random.permutation(labels.shape[0])
@@ -237,3 +239,86 @@ except Exception as e:
 
 statinfo = os.stat(pickle_file)
 print('Compressed pickle size:', statinfo.st_size)
+
+'''
+# Problem 5
+dup = 0
+# Optional: Remove duplicated data sets between train and validation
+# sanitized_valid_dataset = np.empty((0, image_size, image_size), dtype=np.float32)
+# sanitized_valid_labels = np.empty(0, dtype=np.int32)
+for i, valid_data in enumerate(valid_dataset):
+    matchFlag = False
+    for j, train_data in enumerate(train_dataset):
+        if valid_labels[i] == train_labels[j]:
+            if np.array_equal(train_data, valid_data):
+                matchFlag = True
+                dup += 1
+                break
+
+    #if matchFlag is False:
+        #sanitized_valid_dataset = np.vstack([sanitized_valid_dataset, [valid_data]])
+        #sanitized_valid_labels = np.append(sanitized_valid_labels, valid_labels[i])
+
+print("Problme 5:")
+print("Duplicated images between train data set and validation data set: %d" % dup)
+print("Duplicated percentage in terms of train data set: %f, in terms of validation data set: %f" %
+      (dup / train_size, dup / valid_size))
+
+# Do the same for test set
+dup = 0
+#sanitized_test_dataset_temp = np.empty((0, image_size, image_size), dtype=np.float32)
+#sanitized_test_labels_temp = np.empty(0, dtype=np.int32)
+for i, test_data in enumerate(test_dataset):
+    matchFlag = False
+    for j, train_data in enumerate(train_dataset):
+        if test_labels[i] == train_labels[j]:
+            if np.array_equal(train_data, test_data):
+                matchFlag = True
+                dup += 1
+                break
+
+    #if matchFlag is False:
+        #sanitized_test_dataset_temp = np.vstack([sanitized_test_dataset_temp, [test_data]])
+        #sanitized_test_labels_temp = np.append(sanitized_test_labels_temp, test_labels[i])
+
+print("Duplicated images between train data set and test data set: %d" % dup)
+print("Duplicated percentage in terms of train data set: %f, in terms of test data set: %f" %
+      (dup / train_size, dup / valid_size))
+
+# Finally further sanitize between validation data set and test data set
+dup = 0
+#sanitized_test_dataset = np.empty((0, image_size, image_size), dtype=np.float32)
+#sanitized_test_labels = np.empty(0, dtype=np.int32)
+for i, test_data in enumerate(test_dataset):
+    matchFlag = False
+    for j, valid_data in enumerate(valid_dataset):
+        if test_labels[i] == valid_labels[j]:
+            if np.array_equal(valid_data, test_data):
+                matchFlag = True
+                dup += 1
+                break
+
+    #if matchFlag is False:
+        #sanitized_test_dataset = np.vstack([sanitized_valid_dataset, [test_data]])
+        #sanitized_test_labels = np.append(sanitized_valid_labels, test_labels[i])
+
+print("Duplicated images between valid data set and test data set: %d" % dup)
+print("Duplicated percentage in terms of valid data set: %f, in terms of test data set: %f" %
+      (dup / train_size, dup / valid_size))
+'''
+
+# Problem 6
+# Use LogisicRegession from sklearn.linear_model to train 50/100/1000/5000 samples
+from sklearn.linear_model import LogisticRegression
+lr = LogisticRegression(C=1000.0, random_state=0)
+
+train_runs = (50, 100, 1000, 5000)
+test_dataset = test_dataset.reshape(len(test_dataset), 784)
+for train_size in train_runs:
+    print("train_size: %d" % train_size)
+    train_dataset_run = train_dataset[:train_size].reshape(train_size, 784)
+    train_labels_run = train_labels[:train_size]
+    lr.fit(train_dataset_run, train_labels_run)
+    results = lr.predict(test_dataset)
+    match_set = (results == test_labels)
+    print("Prediction accuracy: %f" % (np.sum(match_set) / len(test_dataset)))
